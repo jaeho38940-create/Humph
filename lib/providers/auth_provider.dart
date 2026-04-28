@@ -59,8 +59,11 @@ class AuthNotifier extends StateNotifier<AsyncValue<Session?>> {
     state = const AsyncValue.loading();
     try {
       final response = await _authService.signInWithGoogle();
-      state = AsyncValue.data(response.session);
-      _ref.invalidate(currentProfileProvider);
+      if (response != null) {
+        state = AsyncValue.data(response.session);
+        _ref.invalidate(currentProfileProvider);
+      }
+      // If response is null, we are likely on Web and redirecting
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }

@@ -115,9 +115,13 @@ class LoginScreen extends ConsumerWidget {
               ),
               if (authState.hasError) ...[
                 const SizedBox(height: 16),
-                Text(
-                  'Sign in failed. Please try again.',
-                  style: TextStyle(color: Colors.red[400], fontSize: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Sign in failed: ${authState.error}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.red[400], fontSize: 14),
+                  ),
                 ),
               ],
               const SizedBox(height: 24),
