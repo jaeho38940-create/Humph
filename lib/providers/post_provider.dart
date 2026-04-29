@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post.dart';
 import '../services/post_service.dart';
@@ -102,7 +102,8 @@ class CreatePostNotifier extends StateNotifier<AsyncValue<void>> {
     required bool isFree,
     required String category,
     required String userId,
-    required List<File> images,
+    required List<XFile> images,
+    String currency = 'USD',
     String location = 'Camp Humphreys',
   }) async {
     state = const AsyncValue.loading();
@@ -114,6 +115,7 @@ class CreatePostNotifier extends StateNotifier<AsyncValue<void>> {
         isFree: isFree,
         category: category,
         userId: userId,
+        currency: currency,
         location: location,
       );
 

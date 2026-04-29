@@ -53,6 +53,7 @@ create table if not exists public.posts (
   title text not null,
   description text,
   price int default 0,
+  currency text default 'USD' check (currency in ('USD', 'KRW')),
   is_free boolean default false,
   category text default 'Other',
   status text default 'selling' check (status in ('selling', 'reserved', 'sold')),
@@ -62,6 +63,18 @@ create table if not exists public.posts (
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );
+
+-- Add currency column for existing tables (idempotent)
+alter table public.posts
+  add column if not exists currency text default 'USD';
+
+do $$
+begin
+  alter table public.posts
+    add constraint posts_currency_check check (currency in ('USD', 'KRW'));
+exception
+  when duplicate_object then null;
+end $$;
 
 alter table public.posts enable row level security;
 

@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,8 +21,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   final _priceController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  final List<File> _selectedImages = [];
+  final List<XFile> _selectedImages = [];
   String _selectedCategory = 'Electronics';
+  String _currency = 'USD';
   bool _isFree = false;
   bool _isSubmitting = false;
 
@@ -50,7 +52,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
     if (images.isNotEmpty) {
       final remaining = AppConstants.maxImages - _selectedImages.length;
-      final toAdd = images.take(remaining).map((e) => File(e.path)).toList();
+      final toAdd = images.take(remaining).toList();
       setState(() => _selectedImages.addAll(toAdd));
     }
   }
@@ -67,7 +69,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     );
 
     if (photo != null) {
-      setState(() => _selectedImages.add(File(photo.path)));
+      setState(() => _selectedImages.add(photo));
     }
   }
 
@@ -84,16 +86,21 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final priceText = _priceController.text.trim();
-    final priceInCents = _isFree ? 0 : ((double.tryParse(priceText) ?? 0) * 100).round();
+    final priceText = _priceController.text.replaceAll(',', '').trim();
+    final priceValue = double.tryParse(priceText) ?? 0;
+    // USD is stored in cents (smallest unit). KRW has no fractional unit.
+    final storedPrice = _isFree
+        ? 0
+        : (_currency == 'KRW' ? priceValue.round() : (priceValue * 100).round());
 
     final post = await ref.read(createPostProvider.notifier).createPost(
       title: _titleController.text.trim(),
       description: _descriptionController.text.trim(),
-      price: priceInCents,
+      price: storedPrice,
       isFree: _isFree,
       category: _selectedCategory,
       userId: userId,
+      currency: _currency,
       images: _selectedImages,
     );
 
@@ -184,12 +191,19 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(
-                                    entry.value,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                  ),
+                                  child: kIsWeb
+                                      ? Image.network(
+                                          entry.value.path,
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Image.file(
+                                          File(entry.value.path),
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                        ),
                                 ),
                                 if (entry.key == 0)
                                   Positioned(
@@ -339,20 +353,41 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                       }),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  if (!_isFree)
+                  if (!_isFree) ...[
+                    const SizedBox(height: 16),
+                    // Currency toggle (USD / KRW)
+                    Row(
+                      children: [
+                        const Text(
+                          'Currency',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: HumphTheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildCurrencyChip('USD', '\$'),
+                        const SizedBox(width: 8),
+                        _buildCurrencyChip('KRW', '₩'),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _priceController,
                       style: const TextStyle(
                           color: HumphTheme.onBackground, fontSize: 16),
-                      keyboardType: TextInputType.number,
+                      keyboardType: TextInputType.numberWithOptions(
+                        decimal: _currency == 'USD',
+                      ),
                       decoration: InputDecoration(
-                        prefixText: '\$ ',
+                        prefixText: '${_currency == 'KRW' ? '₩' : '\$'} ',
                         prefixStyle: const TextStyle(
                           color: HumphTheme.onBackground,
                           fontSize: 16,
                         ),
-                        hintText: 'Enter price',
+                        hintText: _currency == 'KRW'
+                            ? 'Enter price in won'
+                            : 'Enter price in dollars',
                         filled: true,
                         fillColor: HumphTheme.surfaceVariant,
                         border: OutlineInputBorder(
@@ -361,12 +396,19 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                         ),
                       ),
                       validator: (value) {
-                        if (!_isFree && (value == null || value.trim().isEmpty)) {
+                        if (_isFree) return null;
+                        if (value == null || value.trim().isEmpty) {
                           return 'Price is required';
+                        }
+                        final cleaned = value.replaceAll(',', '').trim();
+                        final parsed = double.tryParse(cleaned);
+                        if (parsed == null || parsed < 0) {
+                          return 'Enter a valid price';
                         }
                         return null;
                       },
                     ),
+                  ],
                 ],
               ),
             ),
@@ -449,6 +491,35 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             ),
             const SizedBox(height: 32),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrencyChip(String code, String symbol) {
+    final isActive = _currency == code;
+    return GestureDetector(
+      onTap: () {
+        if (_currency != code) {
+          setState(() {
+            _currency = code;
+            _priceController.clear();
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? HumphTheme.primary : HumphTheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          '$symbol $code',
+          style: TextStyle(
+            color: isActive ? Colors.white : HumphTheme.onSurface,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );

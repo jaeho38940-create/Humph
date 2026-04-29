@@ -48,6 +48,7 @@ class PostService {
     required bool isFree,
     required String category,
     required String userId,
+    String currency = 'USD',
     String location = 'Camp Humphreys',
   }) async {
     final data = await supabase
@@ -57,6 +58,7 @@ class PostService {
           'title': title,
           'description': description,
           'price': price,
+          'currency': currency,
           'is_free': isFree,
           'category': category,
           'location': location,

@@ -258,6 +258,18 @@ class _PostDetailScreenState extends ConsumerState<PostDetailScreen> {
                     color: HumphTheme.onBackground,
                   ),
                 ),
+                const SizedBox(height: 8),
+                // Price (right under the title)
+                Text(
+                  post.displayPrice,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: post.isFree
+                        ? HumphTheme.primary
+                        : HumphTheme.onBackground,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   '${post.category} · ${timeago.format(post.createdAt)}',

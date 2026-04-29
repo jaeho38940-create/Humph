@@ -6,23 +6,30 @@ import '../services/auth_service.dart';
 
 final authServiceProvider = Provider((ref) => AuthService());
 
-final authStateProvider = StreamProvider<Session?>((ref) {
-  return Stream.value(supabase.auth.currentSession).asyncExpand((initial) async* {
+/// Streams the current Supabase session.
+///
+/// On page refresh (web) the SDK restores the persisted session asynchronously.
+/// We only emit the *initial* session value if it is non-null; otherwise we wait
+/// for the SDK's INITIAL_SESSION event so the UI shows a loading indicator
+/// instead of flashing the LoginScreen for a frame.
+final authStateProvider = StreamProvider<Session?>((ref) async* {
+  final initial = supabase.auth.currentSession;
+  if (initial != null) {
     yield initial;
-    await for (final event in supabase.auth.onAuthStateChange) {
-      yield event.session;
-    }
-  });
+  }
+  await for (final event in supabase.auth.onAuthStateChange) {
+    yield event.session;
+  }
 });
 
-// Simpler approach: just watch auth state changes
-final authSessionProvider = StreamProvider<Session?>((ref) {
-  return Stream.value(supabase.auth.currentSession).asyncExpand((initial) async* {
+final authSessionProvider = StreamProvider<Session?>((ref) async* {
+  final initial = supabase.auth.currentSession;
+  if (initial != null) {
     yield initial;
-    await for (final event in supabase.auth.onAuthStateChange) {
-      yield event.session;
-    }
-  });
+  }
+  await for (final event in supabase.auth.onAuthStateChange) {
+    yield event.session;
+  }
 });
 
 final currentProfileProvider = FutureProvider<Profile?>((ref) async {

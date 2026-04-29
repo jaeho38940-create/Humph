@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'post_image.dart';
 import 'profile.dart';
 
@@ -7,6 +8,7 @@ class Post {
   final String title;
   final String? description;
   final int price;
+  final String currency;
   final bool isFree;
   final String category;
   final String status;
@@ -25,6 +27,7 @@ class Post {
     required this.title,
     this.description,
     this.price = 0,
+    this.currency = 'USD',
     this.isFree = false,
     this.category = 'Other',
     this.status = 'selling',
@@ -41,7 +44,17 @@ class Post {
   String get displayPrice {
     if (isFree) return 'Free';
     if (price == 0) return 'Price negotiable';
-    return '\$${(price / 100).toStringAsFixed(price % 100 == 0 ? 0 : 2)}';
+
+    if (currency == 'KRW') {
+      return '₩${NumberFormat('#,###').format(price)}';
+    }
+
+    final dollars = price / 100;
+    final hasCents = price % 100 != 0;
+    return NumberFormat.currency(
+      symbol: '\$',
+      decimalDigits: hasCents ? 2 : 0,
+    ).format(dollars);
   }
 
   String? get thumbnailUrl => images.isNotEmpty ? images.first.imageUrl : null;
@@ -66,6 +79,7 @@ class Post {
       title: json['title'] as String,
       description: json['description'] as String?,
       price: json['price'] as int? ?? 0,
+      currency: json['currency'] as String? ?? 'USD',
       isFree: json['is_free'] as bool? ?? false,
       category: json['category'] as String? ?? 'Other',
       status: json['status'] as String? ?? 'selling',
@@ -86,6 +100,7 @@ class Post {
       'title': title,
       'description': description,
       'price': price,
+      'currency': currency,
       'is_free': isFree,
       'category': category,
       'status': status,

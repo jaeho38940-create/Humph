@@ -7,6 +7,41 @@ import '../services/chat_service.dart';
 
 final chatServiceProvider = Provider((ref) => ChatService());
 
+/// Streams the total unread message count for the current user.
+/// Updates in real time whenever a message is inserted or marked as read.
+final unreadCountProvider = StateNotifierProvider<UnreadCountNotifier, int>((ref) {
+  return UnreadCountNotifier(ref.read(chatServiceProvider));
+});
+
+class UnreadCountNotifier extends StateNotifier<int> {
+  final ChatService _chatService;
+  RealtimeChannel? _subscription;
+
+  UnreadCountNotifier(this._chatService) : super(0) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final count = await _chatService.getTotalUnreadCount(userId);
+    if (mounted) state = count;
+
+    _subscription = _chatService.subscribeToUnreadCount(userId, (count) {
+      if (mounted) state = count;
+    });
+  }
+
+  void refresh() => _init();
+
+  @override
+  void dispose() {
+    _subscription?.unsubscribe();
+    super.dispose();
+  }
+}
+
 final chatRoomsProvider = StateNotifierProvider<ChatRoomsNotifier, AsyncValue<List<ChatRoom>>>((ref) {
   final chatService = ref.read(chatServiceProvider);
   return ChatRoomsNotifier(chatService);

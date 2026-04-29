@@ -104,6 +104,51 @@ class ChatService {
     return data.length;
   }
 
+  /// Total unread messages across all chat rooms the user participates in.
+  Future<int> getTotalUnreadCount(String userId) async {
+    final rooms = await supabase
+        .from('chat_rooms')
+        .select('id')
+        .or('buyer_id.eq.$userId,seller_id.eq.$userId');
+
+    if (rooms.isEmpty) return 0;
+
+    final roomIds = rooms.map((r) => r['id'] as String).toList();
+    final data = await supabase
+        .from('messages')
+        .select('id')
+        .inFilter('chat_room_id', roomIds)
+        .neq('sender_id', userId)
+        .eq('is_read', false);
+    return data.length;
+  }
+
+  RealtimeChannel subscribeToUnreadCount(
+    String userId,
+    void Function(int) onCountChanged,
+  ) {
+    Future<void> refresh() async {
+      final count = await getTotalUnreadCount(userId);
+      onCountChanged(count);
+    }
+
+    return supabase
+        .channel('unread:$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          callback: (_) => refresh(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'messages',
+          callback: (_) => refresh(),
+        )
+        .subscribe();
+  }
+
   RealtimeChannel subscribeToMessages(
     String chatRoomId,
     void Function(Message) onNewMessage,
